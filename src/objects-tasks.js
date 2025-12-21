@@ -245,8 +245,14 @@ function fromJSON(proto, json) {
  *      { country: 'Russia',  city: 'Saint Petersburg' }
  *    ]
  */
-function sortCitiesArray(/* arr */) {
-  throw new Error('Not implemented');
+function sortCitiesArray(arr) {
+  return arr.sort((a, b) => {
+    const countryComparison = a.country.localeCompare(b.country);
+    if (countryComparison !== 0) {
+      return countryComparison;
+    }
+    return a.city.localeCompare(b.city);
+  });
 }
 
 /**
@@ -284,8 +290,22 @@ function sortCitiesArray(/* arr */) {
  *    "Poland" => ["Lodz"]
  *   }
  */
-function group(/* array, keySelector, valueSelector */) {
-  throw new Error('Not implemented');
+function group(array, keySelector, valueSelector) {
+  const map = new Map();
+
+  array.forEach((item) => {
+    const key = keySelector(item);
+    const value = valueSelector(item);
+
+    if (map.has(key)) {
+      const existingArray = map.get(key);
+      existingArray.push(value);
+    } else {
+      map.set(key, [value]);
+    }
+  });
+
+  return map;
 }
 
 /**
@@ -342,33 +362,114 @@ function group(/* array, keySelector, valueSelector */) {
  *  For more examples see unit tests.
  */
 
+class Selector {
+  constructor() {
+    this.tagName = '';
+    this.elemId = '';
+    this.classes = [];
+    this.attrs = [];
+    this.pseudoClasses = [];
+    this.pseudoElements = null;
+    this.lastRank = 0;
+  }
+
+  checkOrder(rank) {
+    if (rank < this.lastRank) {
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    }
+    this.lastRank = rank;
+  }
+
+  element(value) {
+    this.checkOrder(1);
+    if (this.tagName) {
+      throw new Error(
+        'Element, id and pseudo-element should not occur more than one time inside the selector'
+      );
+    }
+    this.tagName = value;
+    return this;
+  }
+
+  id(value) {
+    this.checkOrder(2);
+    if (this.elemId) {
+      throw new Error(
+        'Element, id and pseudo-element should not occur more than one time inside the selector'
+      );
+    }
+    this.elemId = value;
+    return this;
+  }
+
+  class(value) {
+    this.checkOrder(3);
+    this.classes.push(value);
+    return this;
+  }
+
+  attr(value) {
+    this.checkOrder(4);
+    this.attrs.push(value);
+    return this;
+  }
+
+  pseudoClass(value) {
+    this.checkOrder(5);
+    this.pseudoClasses.push(value);
+    return this;
+  }
+
+  pseudoElement(value) {
+    this.checkOrder(6);
+    if (this.pseudoElements) {
+      throw new Error(
+        'Element, id and pseudo-element should not occur more than one time inside the selector'
+      );
+    }
+    this.pseudoElements = value;
+    return this;
+  }
+
+  stringify() {
+    return [
+      this.tagName || '',
+      this.elemId ? `#${this.elemId}` : '',
+      this.classes.map((c) => `.${c}`).join(''),
+      this.attrs.map((a) => `[${a}]`).join(''),
+      this.pseudoClasses.map((p) => `:${p}`).join(''),
+      this.pseudoElements ? `::${this.pseudoElements}` : '',
+    ].join('');
+  }
+}
+
 const cssSelectorBuilder = {
-  element(/* value */) {
-    throw new Error('Not implemented');
+  element(value) {
+    return new Selector().element(value);
+  },
+  id(value) {
+    return new Selector().id(value);
+  },
+  class(value) {
+    return new Selector().class(value);
+  },
+  attr(value) {
+    return new Selector().attr(value);
+  },
+  pseudoClass(value) {
+    return new Selector().pseudoClass(value);
+  },
+  pseudoElement(value) {
+    return new Selector().pseudoElement(value);
   },
 
-  id(/* value */) {
-    throw new Error('Not implemented');
-  },
-
-  class(/* value */) {
-    throw new Error('Not implemented');
-  },
-
-  attr(/* value */) {
-    throw new Error('Not implemented');
-  },
-
-  pseudoClass(/* value */) {
-    throw new Error('Not implemented');
-  },
-
-  pseudoElement(/* value */) {
-    throw new Error('Not implemented');
-  },
-
-  combine(/* selector1, combinator, selector2 */) {
-    throw new Error('Not implemented');
+  combine(selector1, combinator, selector2) {
+    return {
+      stringify: () =>
+        `${selector1.stringify()} ${combinator} ${selector2.stringify()}`,
+    };
   },
 };
 
